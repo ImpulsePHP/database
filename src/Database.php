@@ -99,6 +99,7 @@ final class Database implements DatabaseInterface
                     'connection' => $this->createConnectionConfig($config),
                     'username' => $config['username'],
                     'password' => $config['password'],
+                    'queryCache' => true,
                 ]
             ]
         ];
