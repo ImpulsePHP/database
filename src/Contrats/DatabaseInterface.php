@@ -11,6 +11,5 @@ interface DatabaseInterface
 {
     public function getDatabase(?string $name = null): CycleDatabaseInterface;
     public function getORM(): ORMInterface;
-    public function testConnection(?string $database = null): bool;
     public function getConfig(): array;
 }

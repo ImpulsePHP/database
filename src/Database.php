@@ -15,6 +15,7 @@ use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
 use Impulse\Core\Support\Config;
+use Impulse\Database\Contrats\DatabaseInterface;
 use Impulse\Database\Exceptions\DatabaseException;
 
 final class Database implements DatabaseInterface
