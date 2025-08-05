@@ -7,6 +7,9 @@ namespace Impulse\Database;
 use Cycle\Database\Config\DatabaseConfig;
 use Cycle\Database\DatabaseInterface as CycleDatabaseInterface;
 use Cycle\Database\DatabaseManager;
+use Cycle\Database\Driver\MySQL\MySQLDriver;
+use Cycle\Database\Driver\Postgres\PostgresDriver;
+use Cycle\Database\Driver\SQLite\SQLiteDriver;
 use Cycle\ORM\Factory;
 use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
@@ -43,6 +46,9 @@ final class Database implements DatabaseInterface
         return $this->orm;
     }
 
+    /**
+     * @throws DatabaseException
+     */
     public function testConnection(?string $database = null): bool
     {
         try {
@@ -64,6 +70,9 @@ final class Database implements DatabaseInterface
         return $this->config;
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function initializeDatabase(): void
     {
         if (empty($this->config)) {
@@ -78,6 +87,9 @@ final class Database implements DatabaseInterface
         $this->databaseManager = new DatabaseManager($databaseConfig);
     }
 
+    /**
+     * @throws \JsonException
+     */
     private function initializeORM(): void
     {
         $schemaConfig = Config::get('orm.schema', []);
@@ -88,6 +100,9 @@ final class Database implements DatabaseInterface
         $this->orm = new ORM($factory, $schema);
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function transformToCycleConfig(array $config): array
     {
         $cycleConfig = [
@@ -102,6 +117,9 @@ final class Database implements DatabaseInterface
         return $cycleConfig;
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function createDriverConfig(array $connectionConfig): array
     {
         $driver = $connectionConfig['driver'];
@@ -110,7 +128,7 @@ final class Database implements DatabaseInterface
         switch ($driver) {
             case 'pgsql':
                 return [
-                    'driver' => \Cycle\Database\Driver\Postgres\PostgresDriver::class,
+                    'driver' => PostgresDriver::class,
                     'connection' => sprintf(
                         'pgsql:host=%s;port=%s;dbname=%s;charset=%s',
                         $connectionConfig['host'],
@@ -125,7 +143,7 @@ final class Database implements DatabaseInterface
 
             case 'mysql':
                 return [
-                    'driver' => \Cycle\Database\Driver\MySQL\MySQLDriver::class,
+                    'driver' => MySQLDriver::class,
                     'connection' => sprintf(
                         'mysql:host=%s;port=%s;dbname=%s;charset=%s',
                         $connectionConfig['host'],
@@ -140,7 +158,7 @@ final class Database implements DatabaseInterface
 
             case 'sqlite':
                 return [
-                    'driver' => \Cycle\Database\Driver\SQLite\SQLiteDriver::class,
+                    'driver' => SQLiteDriver::class,
                     'connection' => 'sqlite:' . $connectionConfig['database'],
                     'username' => '',
                     'password' => '',
@@ -152,6 +170,9 @@ final class Database implements DatabaseInterface
         }
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function validateConfiguration(): void
     {
         if (empty($this->config)) {
@@ -183,6 +204,9 @@ final class Database implements DatabaseInterface
         }
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function validateConnectionConfig(array $connectionConfig, string $connectionName): void
     {
         $requiredFields = ['driver'];
@@ -223,9 +247,12 @@ final class Database implements DatabaseInterface
         }
     }
 
+    /**
+     * @throws \JsonException
+     */
     private function registerDefaultConfiguration(): void
     {
-        if (!$this->hasConfig('orm')) {
+        if (!Config::has('orm')) {
             $defaultOrmConfig = [
                 'schema' => [],
                 'proxies' => [
@@ -242,16 +269,6 @@ final class Database implements DatabaseInterface
             ];
 
             Config::set('orm', $defaultOrmConfig);
-        }
-    }
-
-    private function hasConfig(string $key): bool
-    {
-        try {
-            $value = Config::get($key);
-            return $value !== null;
-        } catch (\Throwable) {
-            return false;
         }
     }
 }
