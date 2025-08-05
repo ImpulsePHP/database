@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace Impulse\Database;
 
 use Cycle\Database\Config\DatabaseConfig;
-use Cycle\Database\Config\DriverConfig;
 use Cycle\Database\DatabaseInterface as CycleDatabaseInterface;
 use Cycle\Database\DatabaseManager;
 use Cycle\ORM\Factory;
 use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
-use Cycle\ORM\SchemaInterface;
 use Impulse\Core\Support\Config;
 use Impulse\Database\Exceptions\DatabaseException;
 
@@ -22,6 +20,10 @@ final class Database implements DatabaseInterface
     private ORMInterface $orm;
     private array $config;
 
+    /**
+     * @throws DatabaseException
+     * @throws \JsonException
+     */
     public function __construct()
     {
         $this->config = Config::get('database', []);
