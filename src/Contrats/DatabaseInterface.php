@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Impulse\Database;
+namespace Impulse\Database\Contrats;
 
 use Cycle\Database\DatabaseInterface as CycleDatabaseInterface;
 use Cycle\ORM\ORMInterface;
