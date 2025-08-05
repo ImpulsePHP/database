@@ -12,6 +12,7 @@ use Cycle\ORM\Factory;
 use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
+use Cycle\ORM\SchemaInterface;
 use Impulse\Core\Support\Config;
 use Impulse\Database\Exceptions\DatabaseException;
 
@@ -21,10 +22,6 @@ final class Database implements DatabaseInterface
     private ORMInterface $orm;
     private array $config;
 
-    /**
-     * @throws DatabaseException
-     * @throws \JsonException
-     */
     public function __construct()
     {
         $this->config = Config::get('database', []);
@@ -44,9 +41,6 @@ final class Database implements DatabaseInterface
         return $this->orm;
     }
 
-    /**
-     * @throws DatabaseException
-     */
     public function testConnection(?string $database = null): bool
     {
         try {
@@ -68,9 +62,6 @@ final class Database implements DatabaseInterface
         return $this->config;
     }
 
-    /**
-     * @throws DatabaseException
-     */
     private function initializeDatabase(): void
     {
         if (empty($this->config)) {
@@ -82,13 +73,9 @@ final class Database implements DatabaseInterface
 
         $cycleConfig = $this->transformToCycleConfig($this->config);
         $databaseConfig = new DatabaseConfig($cycleConfig);
-
         $this->databaseManager = new DatabaseManager($databaseConfig);
     }
 
-    /**
-     * @throws \JsonException
-     */
     private function initializeORM(): void
     {
         $schemaConfig = Config::get('orm.schema', []);
@@ -99,9 +86,6 @@ final class Database implements DatabaseInterface
         $this->orm = new ORM($factory, $schema);
     }
 
-    /**
-     * @throws DatabaseException
-     */
     private function transformToCycleConfig(array $config): array
     {
         $cycleConfig = [
@@ -116,62 +100,56 @@ final class Database implements DatabaseInterface
         return $cycleConfig;
     }
 
-    /**
-     * @throws DatabaseException
-     */
-    private function createDriverConfig(array $connectionConfig): DriverConfig
+    private function createDriverConfig(array $connectionConfig): array
     {
         $driver = $connectionConfig['driver'];
         $options = $connectionConfig['options'] ?? [];
 
         switch ($driver) {
             case 'pgsql':
-                return new DriverConfig(
-                    driver: \Cycle\Database\Driver\Postgres\PostgresDriver::class,
-                    connection: sprintf(
+                return [
+                    'driver' => \Cycle\Database\Driver\Postgres\PostgresDriver::class,
+                    'connection' => sprintf(
                         'pgsql:host=%s;port=%s;dbname=%s;charset=%s',
                         $connectionConfig['host'],
                         $connectionConfig['port'] ?? 5432,
                         $connectionConfig['database'],
                         $connectionConfig['charset'] ?? 'utf8'
                     ),
-                    username: $connectionConfig['username'],
-                    password: $connectionConfig['password'],
-                    options: $options
-                );
+                    'username' => $connectionConfig['username'],
+                    'password' => $connectionConfig['password'],
+                    'options' => $options
+                ];
 
             case 'mysql':
-                return new DriverConfig(
-                    driver: \Cycle\Database\Driver\MySQL\MySQLDriver::class,
-                    connection: sprintf(
+                return [
+                    'driver' => \Cycle\Database\Driver\MySQL\MySQLDriver::class,
+                    'connection' => sprintf(
                         'mysql:host=%s;port=%s;dbname=%s;charset=%s',
                         $connectionConfig['host'],
                         $connectionConfig['port'] ?? 3306,
                         $connectionConfig['database'],
                         $connectionConfig['charset'] ?? 'utf8mb4'
                     ),
-                    username: $connectionConfig['username'],
-                    password: $connectionConfig['password'],
-                    options: $options
-                );
+                    'username' => $connectionConfig['username'],
+                    'password' => $connectionConfig['password'],
+                    'options' => $options
+                ];
 
             case 'sqlite':
-                return new DriverConfig(
-                    driver: \Cycle\Database\Driver\SQLite\SQLiteDriver::class,
-                    connection: 'sqlite:' . $connectionConfig['database'],
-                    username: '',
-                    password: '',
-                    options: $options
-                );
+                return [
+                    'driver' => \Cycle\Database\Driver\SQLite\SQLiteDriver::class,
+                    'connection' => 'sqlite:' . $connectionConfig['database'],
+                    'username' => '',
+                    'password' => '',
+                    'options' => $options
+                ];
 
             default:
                 throw new DatabaseException("Driver '{$driver}' non supporté");
         }
     }
 
-    /**
-     * @throws DatabaseException
-     */
     private function validateConfiguration(): void
     {
         if (empty($this->config)) {
@@ -203,9 +181,6 @@ final class Database implements DatabaseInterface
         }
     }
 
-    /**
-     * @throws DatabaseException
-     */
     private function validateConnectionConfig(array $connectionConfig, string $connectionName): void
     {
         $requiredFields = ['driver'];
@@ -246,12 +221,9 @@ final class Database implements DatabaseInterface
         }
     }
 
-    /**
-     * @throws \JsonException
-     */
     private function registerDefaultConfiguration(): void
     {
-        if (!Config::has('orm')) {
+        if (!$this->hasConfig('orm')) {
             $defaultOrmConfig = [
                 'schema' => [],
                 'proxies' => [
@@ -268,6 +240,16 @@ final class Database implements DatabaseInterface
             ];
 
             Config::set('orm', $defaultOrmConfig);
+        }
+    }
+
+    private function hasConfig(string $key): bool
+    {
+        try {
+            $value = Config::get($key);
+            return $value !== null;
+        } catch (\Throwable) {
+            return false;
         }
     }
 }
