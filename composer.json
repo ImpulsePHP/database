@@ -1,0 +1,45 @@
+{
+  "name": "impulsephp/database",
+  "description": "A powerful and flexible database abstraction layer for ImpulsePHP applications. Provides CycleORM integration with support for MySQL, PostgreSQL, and SQLite databases through a unified provider interface.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Guillaume Bouyer",
+      "email": "impulsephp@icloud.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Impulse\\Database\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Impulse\\Database\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@composer dump-autoload --optimize"
+    ],
+    "test": "phpunit"
+  },
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pgsql": "*",
+    "cycle/orm": "^2.0",
+    "cycle/database": "^2.0"
+  },
+  "suggest": {
+    "ext-pdo_mysql": "For MySQL database support",
+    "ext-pdo_sqlite": "For SQLite database support",
+    "ext-pdo_pgsql": "For PostgreSQL database support"
+  },
+  "extra": {
+    "impulse-provider": "Impulse\\Database\\DatabaseProvider"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
