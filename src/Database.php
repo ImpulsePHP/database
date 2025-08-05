@@ -15,7 +15,6 @@ use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
 use Impulse\Core\Support\Config;
-use Impulse\Database\Contrats\DatabaseInterface;
 use Impulse\Database\Exceptions\DatabaseException;
 
 final class Database implements DatabaseInterface
@@ -31,6 +30,7 @@ final class Database implements DatabaseInterface
     public function __construct()
     {
         $this->config = Config::get('database', []);
+
         $this->validateConfiguration();
         $this->initializeDatabase();
         $this->initializeORM();
@@ -47,25 +47,6 @@ final class Database implements DatabaseInterface
         return $this->orm;
     }
 
-    /**
-     * @throws DatabaseException
-     */
-    public function testConnection(?string $database = null): bool
-    {
-        try {
-            $db = $this->getDatabase($database);
-            $result = $db->select('1 as test')->run();
-            $result->fetch();
-            return true;
-        } catch (\Throwable $e) {
-            throw new DatabaseException(
-                'Impossible de se connecter à la base de données : ' . $e->getMessage(),
-                0,
-                $e
-            );
-        }
-    }
-
     public function getConfig(): array
     {
         return $this->config;
@@ -78,13 +59,13 @@ final class Database implements DatabaseInterface
     {
         if (empty($this->config)) {
             throw new DatabaseException(
-                'Configuration de base de données requise. ' .
-                'Veuillez configurer la section "database" dans votre configuration.'
+                'Configuration de base de données requise. Veuillez configurer la section "database".'
             );
         }
 
         $cycleConfig = $this->transformToCycleConfig($this->config);
         $databaseConfig = new DatabaseConfig($cycleConfig);
+
         $this->databaseManager = new DatabaseManager($databaseConfig);
     }
 
@@ -95,8 +76,7 @@ final class Database implements DatabaseInterface
     {
         $schemaConfig = Config::get('orm.schema', []);
         $schema = new Schema($schemaConfig);
-
-        $factory = new Factory($this->databaseManager, null, null);
+        $factory = new Factory($this->databaseManager);
 
         $this->orm = new ORM($factory, $schema);
     }
@@ -106,69 +86,52 @@ final class Database implements DatabaseInterface
      */
     private function transformToCycleConfig(array $config): array
     {
-        $cycleConfig = [
-            'databases' => $config['databases'] ?? [],
-            'connections' => []
+        return [
+            'default' => 'default',
+            'databases' => [
+                'default' => [
+                    'connection' => $config['driver'],
+                ]
+            ],
+            'connections' => [
+                $config['driver'] => $this->createDriverConfig($config),
+                'options' => [
+                    'connection' => $this->createConnectionConfig($config),
+                    'username' => $config['username'],
+                    'password' => $config['password'],
+                ]
+            ]
         ];
-
-        foreach ($config['connections'] as $name => $connectionConfig) {
-            $cycleConfig['connections'][$name] = $this->createDriverConfig($connectionConfig);
-        }
-
-        return $cycleConfig;
     }
 
     /**
      * @throws DatabaseException
      */
-    private function createDriverConfig(array $connectionConfig): array
+    private function createDriverConfig(array $connectionConfig): string
     {
         $driver = $connectionConfig['driver'];
-        $options = $connectionConfig['options'] ?? [];
 
-        switch ($driver) {
-            case 'pgsql':
-                return [
-                    'driver' => PostgresDriver::class,
-                    'connection' => sprintf(
-                        'pgsql:host=%s;port=%s;dbname=%s;charset=%s',
-                        $connectionConfig['host'],
-                        $connectionConfig['port'] ?? 5432,
-                        $connectionConfig['database'],
-                        $connectionConfig['charset'] ?? 'utf8'
-                    ),
-                    'username' => $connectionConfig['username'],
-                    'password' => $connectionConfig['password'],
-                    'options' => $options
-                ];
+        return match ($driver) {
+            'pgsql' => PostgresDriver::class,
+            'mysql' => MySQLDriver::class,
+            'sqlite' => SQLiteDriver::class,
+            default => throw new DatabaseException("Driver '{$driver}' non supporté."),
+        };
+    }
 
-            case 'mysql':
-                return [
-                    'driver' => MySQLDriver::class,
-                    'connection' => sprintf(
-                        'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-                        $connectionConfig['host'],
-                        $connectionConfig['port'] ?? 3306,
-                        $connectionConfig['database'],
-                        $connectionConfig['charset'] ?? 'utf8mb4'
-                    ),
-                    'username' => $connectionConfig['username'],
-                    'password' => $connectionConfig['password'],
-                    'options' => $options
-                ];
+    /**
+     * @throws DatabaseException
+     */
+    private function createConnectionConfig(array $connectionConfig): string
+    {
+        $driver = $connectionConfig['driver'];
 
-            case 'sqlite':
-                return [
-                    'driver' => SQLiteDriver::class,
-                    'connection' => 'sqlite:' . $connectionConfig['database'],
-                    'username' => '',
-                    'password' => '',
-                    'options' => $options
-                ];
-
-            default:
-                throw new DatabaseException("Driver '{$driver}' non supporté");
-        }
+        return match ($driver) {
+            'pgsql' => sprintf('pgsql:host=%s;dbname=%s', $connectionConfig['host'], $connectionConfig['database']),
+            'mysql' => sprintf('mysql:host=%s;dbname=%s', $connectionConfig['host'], $connectionConfig['database']),
+            'sqlite' => sprintf('sqlite:%s', $connectionConfig['database']),
+            default => throw new DatabaseException("Driver '{$driver}' non supporté."),
+        };
     }
 
     /**
@@ -178,73 +141,33 @@ final class Database implements DatabaseInterface
     {
         if (empty($this->config)) {
             throw new DatabaseException(
-                'Configuration de base de données manquante. ' .
-                'Ajoutez une section "database" à votre configuration.'
+                'Configuration de base de données manquante. Ajoutez une section "database".'
             );
         }
 
-        if (empty($this->config['databases']) || !is_array($this->config['databases'])) {
-            throw new DatabaseException('Section "databases" manquante ou invalide.');
-        }
-
-        if (empty($this->config['connections']) || !is_array($this->config['connections'])) {
-            throw new DatabaseException('Section "connections" manquante ou invalide.');
-        }
-
-        foreach ($this->config['databases'] as $dbName => $dbConfig) {
-            if (isset($dbConfig['driver'])) {
-                $connectionName = $dbConfig['driver'];
-                if (!isset($this->config['connections'][$connectionName])) {
-                    throw new DatabaseException(
-                        "La base de données '{$dbName}' référence une connexion '{$connectionName}' qui n'existe pas."
-                    );
-                }
-
-                $this->validateConnectionConfig($this->config['connections'][$connectionName], $connectionName);
-            }
-        }
+        $this->validateConnectionConfig();
     }
 
     /**
      * @throws DatabaseException
      */
-    private function validateConnectionConfig(array $connectionConfig, string $connectionName): void
+    private function validateConnectionConfig(): void
     {
-        $requiredFields = ['driver'];
-
-        foreach ($requiredFields as $field) {
-            if (!isset($connectionConfig[$field])) {
-                throw new DatabaseException(
-                    "Le champ '{$field}' est requis pour la connexion '{$connectionName}'"
-                );
-            }
+        if (empty($this->config['driver'])) {
+            throw new DatabaseException("Le champ 'driver' est requis pour la connexion.");
         }
 
-        $driver = $connectionConfig['driver'];
+        $driver = $this->config['driver'];
+        $requiredFields = match ($driver) {
+            'pgsql', 'mysql' => ['host', 'database', 'username'],
+            'sqlite' => ['database'],
+            default => throw new DatabaseException("Driver '{$driver}' non supporté."),
+        };
 
-        switch ($driver) {
-            case 'pgsql':
-            case 'mysql':
-                $requiredDbFields = ['host', 'database', 'username'];
-                foreach ($requiredDbFields as $field) {
-                    if (!isset($connectionConfig[$field])) {
-                        throw new DatabaseException(
-                            "Le champ '{$field}' est requis pour la connexion {$driver} '{$connectionName}'"
-                        );
-                    }
-                }
-                break;
-
-            case 'sqlite':
-                if (!isset($connectionConfig['database'])) {
-                    throw new DatabaseException(
-                        "Le champ 'database' est requis pour la connexion SQLite '{$connectionName}'"
-                    );
-                }
-                break;
-
-            default:
-                throw new DatabaseException("Driver '{$driver}' non supporté");
+        foreach ($requiredFields as $field) {
+            if (empty($connectionConfig[$field])) {
+                throw new DatabaseException("Le champ '{$field}' est requis pour la connexion {$driver}.");
+            }
         }
     }
 
@@ -253,12 +176,10 @@ final class Database implements DatabaseInterface
      */
     private function registerDefaultConfiguration(): void
     {
-        if (!Config::has('orm')) {
-            $defaultOrmConfig = [
+        if (Config::has('orm')) {
+            Config::set('orm', [
                 'schema' => [],
-                'proxies' => [
-                    'directory' => getcwd() . '/storage/cycle/proxies',
-                ],
+                'proxies' => ['directory' => getcwd() . '/storage/cycle/proxies'],
                 'migrations' => [
                     'directory' => getcwd() . '/database/migrations',
                     'table' => 'cycle_migrations',
@@ -267,9 +188,7 @@ final class Database implements DatabaseInterface
                     'enable' => false,
                     'directory' => getcwd() . '/storage/cycle/cache',
                 ],
-            ];
-
-            Config::set('orm', $defaultOrmConfig);
+            ]);
         }
     }
 }
