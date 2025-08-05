@@ -6,7 +6,6 @@ namespace Impulse\Database;
 
 use Impulse\Core\Container\ImpulseContainer;
 use Impulse\Core\Provider\AbstractProvider;
-use Impulse\Core\Support\Config;
 use Impulse\Database\Contrats\DatabaseInterface;
 
 final class DatabaseProvider extends AbstractProvider
@@ -17,17 +16,5 @@ final class DatabaseProvider extends AbstractProvider
     protected function registerServices(ImpulseContainer $container): void
     {
         $container->set(DatabaseInterface::class, fn () => new Database());
-    }
-
-    /**
-     * @throws \JsonException
-     * @throws \Exception
-     */
-    protected function onBoot(ImpulseContainer $container): void
-    {
-        if (!Config::get('database.skip_connection_test', false)) {
-            $database = $container->get(DatabaseInterface::class);
-            $database->testConnection();
-        }
     }
 }
