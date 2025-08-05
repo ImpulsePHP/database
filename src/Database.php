@@ -146,31 +146,6 @@ final class Database implements DatabaseInterface
                 'Configuration de base de données manquante. Ajoutez une section "database".'
             );
         }
-
-        $this->validateConnectionConfig();
-    }
-
-    /**
-     * @throws DatabaseException
-     */
-    private function validateConnectionConfig(): void
-    {
-        if (empty($this->config['driver'])) {
-            throw new DatabaseException("Le champ 'driver' est requis pour la connexion.");
-        }
-
-        $driver = $this->config['driver'];
-        $requiredFields = match ($driver) {
-            'pgsql', 'mysql' => ['host', 'database', 'username'],
-            'sqlite' => ['database'],
-            default => throw new DatabaseException("Driver '{$driver}' non supporté."),
-        };
-
-        foreach ($requiredFields as $field) {
-            if (empty($connectionConfig[$field])) {
-                throw new DatabaseException("Le champ '{$field}' est requis pour la connexion {$driver}.");
-            }
-        }
     }
 
     /**
